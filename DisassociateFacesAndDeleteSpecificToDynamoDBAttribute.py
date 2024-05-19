@@ -1,31 +1,39 @@
 import json
 import boto3
+from botocore.exceptions import ClientError
 
 # Initialize the Rekognition client
 rekognition = boto3.client('rekognition')
 dynamodb = boto3.client('dynamodb')
 
 def get_face_data_from_dynamodb(user_id):
-    # Assuming you have a DynamoDB table named 'indexed_data' with a global secondary index named 'user_id_index'
-    response = dynamodb.query(
-        TableName='indexed_data',
-        IndexName='user_id-index',
-        KeyConditionExpression='user_id = :uid',
-        ExpressionAttributeValues={
-            ':uid': {'S': user_id}
-        }
-    )
-    return [(item['face_id']['S'], item['folder_name']['S']) for item in response['Items']]
+    try:
+        response = dynamodb.query(
+            TableName='indexed_data',
+            IndexName='user_id-index',
+            KeyConditionExpression='user_id = :uid',
+            ExpressionAttributeValues={
+                ':uid': {'S': user_id}
+            }
+        )
+        return [(item['face_id']['S'], item['folder_name']['S']) for item in response['Items']]
+    except ClientError as e:
+        print(f"An error occurred while querying DynamoDB: {e}")
+        return []
 
 def disassociate_faces_from_collection(collection_id, face_ids, user_id):
-    for face_id in face_ids:
-        response = rekognition.disassociate_faces(
-            CollectionId=collection_id,
-            UserId=user_id,
-            FaceIds=[face_id]  # Pass face_id as a list
-        )
-        print(f"Disassociated face {face_id} from user {user_id}")
-    return True
+    try:
+        for face_id in face_ids:
+            response = rekognition.disassociate_faces(
+                CollectionId=collection_id,
+                UserId=user_id,
+                FaceIds=[face_id]  # Pass face_id as a list
+            )
+            print(f"Disassociated face {face_id} from user {user_id}")
+        return True
+    except ClientError as e:
+        print(f"An error occurred while disassociating faces: {e}")
+        return False
 
 def delete_faces_from_collection(collection_id, user_id):
     # Get all face data associated with the user ID from DynamoDB
@@ -37,13 +45,22 @@ def delete_faces_from_collection(collection_id, user_id):
     # Extract face IDs
     face_ids = [face_id for face_id, _ in filtered_face_data]
     
+    if not face_ids:
+        print(f"No faces found for user {user_id} in the specified folder.")
+        return []
+
     # Disassociate the face IDs from the collection
-    disassociate_faces_from_collection(collection_id, face_ids, user_id)
-    
+    if not disassociate_faces_from_collection(collection_id, face_ids, user_id):
+        print(f"Failed to disassociate faces for user {user_id}.")
+        return []
+
     # Delete the faces
-    response = rekognition.delete_faces(CollectionId=collection_id, FaceIds=face_ids)
-    
-    return response['DeletedFaces']
+    try:
+        response = rekognition.delete_faces(CollectionId=collection_id, FaceIds=face_ids)
+        return response['DeletedFaces']
+    except ClientError as e:
+        print(f"An error occurred while deleting faces: {e}")
+        return []
 
 def lambda_handler(event, context):
     # Collection ID where faces are stored
