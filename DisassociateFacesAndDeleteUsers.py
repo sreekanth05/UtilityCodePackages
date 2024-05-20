@@ -60,13 +60,19 @@ def lambda_handler(event, context):
         
         # Disassociate face IDs from the Rekognition collection
         if face_ids:
-            print(f"Disassociating {total_faces_found} faces from collection for User ID: {user_id}")
-            disassociate_faces_from_collection(collection_id, user_id, face_ids)
-            total_faces_disassociated += len(face_ids)
+            try:
+                print(f"Disassociating {total_faces_found} faces from collection for User ID: {user_id}")
+                disassociate_faces_from_collection(collection_id, user_id, face_ids)
+                total_faces_disassociated += len(face_ids)
+            except Exception as e:
+                print(f"An error occurred during disassociation for User ID: {user_id}: {e}")
         
         # Delete user ID from the collection
-        print(f"Deleting {total_faces_found} faces from collection for User ID: {user_id}")
-        deleted_faces = delete_user_from_collection(collection_id, user_id)
+        try:
+            print(f"Deleting {total_faces_found} faces from collection for User ID: {user_id}")
+            deleted_faces = delete_user_from_collection(collection_id, user_id)
+        except Exception as e:
+            print(f"An error occurred during deletion for User ID: {user_id}: {e}")
         
         print(f"User ID: {user_id}")
         print(f"Total FaceIDs Found: {total_faces_found}")
