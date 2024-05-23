@@ -1,3 +1,5 @@
+# This Utility Lambda is for the disassociating the faces for the newUsers created, deleting the face_ids and user_ids.
+
 import json
 import boto3
 
