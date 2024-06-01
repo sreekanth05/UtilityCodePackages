@@ -2,22 +2,45 @@
 
 import json
 import boto3
+from botocore.exceptions import ClientError
 
 # Initialize the Rekognition client
 rekognition = boto3.client('rekognition')
 dynamodb = boto3.client('dynamodb')
 
 def get_face_ids_from_dynamodb(user_id):
-    # Assuming you have a DynamoDB table named 'indexed_data' with a global secondary index named 'user_id_index'
-    response = dynamodb.query(
-        TableName='indexed_data',
-        IndexName='user_id-index',
-        KeyConditionExpression='user_id = :uid',
-        ExpressionAttributeValues={
-            ':uid': {'S': user_id}
+    all_face_ids = []
+    last_evaluated_key = None
+    
+    while True:
+        # Initialize query parameters
+        query_params = {
+            'TableName': 'indexed_data',
+            'IndexName': 'user_id-index',
+            'KeyConditionExpression': 'user_id = :uid',
+            'ExpressionAttributeValues': {
+                ':uid': {'S': user_id}
+            }
         }
-    )
-    return [item['face_id']['S'] for item in response['Items']]
+        
+        # Add the ExclusiveStartKey to the query parameters if it's not the first request
+        if last_evaluated_key:
+            query_params['ExclusiveStartKey'] = last_evaluated_key
+        
+        # Execute the query
+        response = dynamodb.query(**query_params)
+        
+        # Collect face IDs from the response
+        face_ids = [item['face_id']['S'] for item in response['Items']]
+        all_face_ids.extend(face_ids)
+        
+        # Check if there is more data to be fetched
+        if 'LastEvaluatedKey' in response:
+            last_evaluated_key = response['LastEvaluatedKey']
+        else:
+            break
+    
+    return all_face_ids
 
 def disassociate_faces_from_collection(collection_id, user_id, face_ids):
     # Disassociate the faces one by one
@@ -42,7 +65,6 @@ def delete_user_from_collection(collection_id, user_id):
     except ClientError as e:
         print(f"Failed to delete user {user_id} from collection {collection_id}: {e}")
         raise
-
 
 def lambda_handler(event, context):
     # Collection ID where faces are stored
@@ -72,7 +94,7 @@ def lambda_handler(event, context):
         # Delete user ID from the collection
         try:
             print(f"Deleting {total_faces_found} faces from collection for User ID: {user_id}")
-            deleted_faces = delete_user_from_collection(collection_id, user_id)
+            delete_user_from_collection(collection_id, user_id)
         except Exception as e:
             print(f"An error occurred during deletion for User ID: {user_id}: {e}")
         
