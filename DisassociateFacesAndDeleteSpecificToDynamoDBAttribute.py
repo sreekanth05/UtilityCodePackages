@@ -1,3 +1,4 @@
+## This code gets faces from dynamodb -> diassociate the face from user_id in the collection -> delete faces from the collection.
 import json
 import boto3
 from botocore.exceptions import ClientError
