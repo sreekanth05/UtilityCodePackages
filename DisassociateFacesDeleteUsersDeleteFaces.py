@@ -1,4 +1,4 @@
-# This code, takes the user_id as input and fetches the face_ids from the dynamodb and disassociates faces, deletes the faces and deletes the users.
+# This Utility Lambda is for the disassociating the faces from the newUsers created and will delete the user_ids
 
 import json
 import boto3
@@ -53,19 +53,6 @@ def disassociate_faces_from_collection(collection_id, user_id, face_ids):
         print(f"Disassociated face {face_id} from user {user_id}")
     return True
 
-def delete_faces_from_collection(collection_id, face_ids):
-    # Delete faces one by one
-    for face_id in face_ids:
-        try:
-            response = rekognition.delete_faces(
-                CollectionId=collection_id,
-                FaceIds=[face_id]  # Pass face_id as a list
-            )
-            print(f"Deleted face {face_id} from collection {collection_id}")
-        except ClientError as e:
-            print(f"Failed to delete face {face_id} from collection {collection_id}: {e}")
-            raise
-
 def delete_user_from_collection(collection_id, user_id):
     print(f"Deleting user: {user_id} from collection: {collection_id}")
     try:
@@ -94,7 +81,6 @@ def lambda_handler(event, context):
         
         total_faces_found = len(face_ids)
         total_faces_disassociated = 0
-        total_faces_deleted = 0
         
         # Disassociate face IDs from the Rekognition collection
         if face_ids:
@@ -105,23 +91,14 @@ def lambda_handler(event, context):
             except Exception as e:
                 print(f"An error occurred during disassociation for User ID: {user_id}: {e}")
         
-        # Delete face IDs from the Rekognition collection
-        if face_ids:
-            try:
-                print(f"Deleting {total_faces_found} faces from collection for User ID: {user_id}")
-                delete_faces_from_collection(collection_id, face_ids)
-                total_faces_deleted += len(face_ids)
-            except Exception as e:
-                print(f"An error occurred during deletion of faces for User ID: {user_id}: {e}")
-        
         # Delete user ID from the collection
         try:
+            print(f"Deleting {total_faces_found} faces from collection for User ID: {user_id}")
             delete_user_from_collection(collection_id, user_id)
         except Exception as e:
-            print(f"An error occurred during deletion of user for User ID: {user_id}: {e}")
+            print(f"An error occurred during deletion for User ID: {user_id}: {e}")
         
         print(f"User ID: {user_id}")
         print(f"Total FaceIDs Found: {total_faces_found}")
         print(f"Total FaceIDs Disassociated: {total_faces_disassociated}")
-        print(f"Total FaceIDs Deleted: {total_faces_deleted}")
         print("------------------------")
