@@ -102,3 +102,13 @@ def lambda_handler(event, context):
         print(f"Total FaceIDs Found: {total_faces_found}")
         print(f"Total FaceIDs Disassociated: {total_faces_disassociated}")
         print("------------------------")
+
+
+## Manual payload
+
+# {
+#   "user_ids": [
+#     "98baf10c-d825-4e",
+#     "76b3d824-2dc7-41"
+#   ]
+# }
